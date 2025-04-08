@@ -1,0 +1,28 @@
+# Use AlmaLinux as the base image
+FROM almalinux
+
+# Metadata indicating an image maintainer
+LABEL maintainer="adv@cdac.in"
+
+#for Centos only
+#RUN cd /etc/yum.repos.d/
+#RUN sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+#RUN sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+
+# Install required packages
+RUN yum -y update && \
+    yum -y install openssh-server && \
+    yum clean all
+
+# for ps command
+RUN dnf install procps -y
+RUN echo "alias ll='ls -l'" >> /root/.bashrc
+
+# Copy the hardening script to the container
+COPY script.sh /opt/script.sh
+
+# Make the hardening script executable
+RUN chmod 775 /opt/script.sh
+
+# Run the hardening script
+RUN /opt/script.sh
