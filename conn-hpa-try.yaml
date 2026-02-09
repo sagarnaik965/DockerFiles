@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connt
+  namespace: default
+  labels:
+    app: connt
+spec:
+  replicas: 1   # HPA will manage this
+  selector:
+    matchLabels:
+      app: connt
+  template:
+    metadata:
+      labels:
+        app: connt
+    spec:
+      containers:
+        - name: connt
+          image: adv:v451
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              hostPort: 8080   # ← added this line
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: 900m
+              memory: 4Gi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 90
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 90
+          volumeMounts:
+            - name: webapps-vol
+              mountPath: /usr/appserver/tomcat/webapps
+            - name: logs-vol
+              mountPath: /opt/appdata/logs
+            - name: conf-vol
+              mountPath: /usr/appserver/tomcat/conf
+      volumes:
+        - name: webapps-vol
+          hostPath:
+            path: /opt/appdata/adv-solution/webapps
+            type: Directory
+        - name: logs-vol
+          hostPath:
+            path: /opt/appdata/adv-solution/logs
+            type: Directory
+        - name: conf-vol
+          hostPath:
+            path: /opt/appdata/adv-solution/conf
+            type: Directory
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: connt
+  namespace: default
+spec:
+  type: ClusterIP   # ← changed from NodePort
+  selector:
+    app: connt
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+      # nodePort removed because hostPort handles it now
+
+---
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: connt-hpa
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: connt
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+
