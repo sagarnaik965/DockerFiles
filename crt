@@ -1,0 +1,4 @@
+for img in *.tar; do
+    echo "Importing $img ..."
+    sudo ctr -n k8s.io images import "$img"
+done
