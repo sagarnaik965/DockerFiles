@@ -1,36 +1,26 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: connt-8088
+  name: connt
   namespace: default
   labels:
-    app: connt-8088
+    app: connt
 spec:
-  replicas: 1   # HPA will manage this
+  replicas: 2
   selector:
     matchLabels:
-      app: connt-8088
+      app: connt
   template:
     metadata:
       labels:
-        app: connt-8088
+        app: connt
     spec:
       containers:
         - name: connt
           image: adv:v451
           imagePullPolicy: IfNotPresent
-
-          env:
-            - name: TZ
-              value: Asia/Kolkata
-            - name: JAVA_OPTS
-              value: "-Duser.timezone=Asia/Kolkata"
-
           ports:
-            - name: http-8081
-              containerPort: 8080
-              hostPort: 8088
-
+            - containerPort: 8080
           resources:
             requests:
               cpu: 500m
@@ -38,19 +28,16 @@ spec:
             limits:
               cpu: 900m
               memory: 4Gi
-
           readinessProbe:
             httpGet:
               path: /
               port: 8080
             initialDelaySeconds: 90
-
           livenessProbe:
             httpGet:
               path: /
               port: 8080
             initialDelaySeconds: 90
-
           volumeMounts:
             - name: webapps-vol
               mountPath: /usr/appserver/tomcat/webapps
@@ -58,58 +45,51 @@ spec:
               mountPath: /opt/appdata/logs
             - name: conf-vol
               mountPath: /usr/appserver/tomcat/conf
-            - name: localtime
-              mountPath: /etc/localtime
-              readOnly: true
-
       volumes:
         - name: webapps-vol
           hostPath:
-            path: /opt/appdata/adv-connector/webapps
+            path: /opt/appdata/adv-solution/webapps
             type: Directory
         - name: logs-vol
           hostPath:
-            path: /opt/appdata/adv-connector/logs
+            path: /opt/appdata/adv-solution/logs
             type: Directory
         - name: conf-vol
           hostPath:
-            path: /opt/appdata/adv-connector/conf
+            path: /opt/appdata/adv-solution/conf
             type: Directory
-        - name: localtime
-          hostPath:
-            path: /etc/localtime
-            type: File
 
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
-  name: connt-8088
+  name: connt
   namespace: default
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
-    app: connt-8088
+    app: connt
   ports:
     - name: http
       port: 8080
       targetPort: 8080
-      # In-cluster: http://connt-8088:8080
-      # External:    http://<node-ip>:8081 (via hostPort)
+      nodePort: 30147
 
 ---
+
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: connt-8088-hpa
+  name: connt-hpa
   namespace: default
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: connt-8088
-  minReplicas: 1
-  maxReplicas: 5
+    name: connt
+  minReplicas: 2
+  maxReplicas: 6
   metrics:
     - type: Resource
       resource:
